@@ -11,7 +11,8 @@ function(phase = c("data", "input", "model", "output"))
   # phase specific packages -------------------
   pkg <-
     switch(phase,
-      data = c("sp", "rgdal", "rgeos", "dplyr"),
+      #data = c("sp", "rgdal", "rgeos", "dplyr"),
+      data = c("sf", "dplyr"),
       input = c("lubridate"),
       model = c("stats", "survival", "dplyr", "mgcv", "sp", "rgdal"),
       output = c("tidyr", "dplyr")
