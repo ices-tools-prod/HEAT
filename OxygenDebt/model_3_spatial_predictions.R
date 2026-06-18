@@ -33,10 +33,10 @@ rm(check)
 
 
 # read helcom assessment areas
-helcom <- rgdal::readOGR(file.path(outputPath), "oxy_areas", verbose = FALSE)
+helcom <- sf::st_read(dsn = file.path(outputPath), layer = "oxy_areas", quiet = TRUE)
 
 # read depth layer (spatial points) for prediction
-bathy <- rgdal::readOGR(file.path(outputPath), "oxy_bathymetry", verbose = FALSE)
+bathy <- sf::st_read(dsn = file.path(outputPath), layer = "oxy_bathymetry", quiet = TRUE)
 
 # drop regions not in models!
 if ("Basin" %in% names(gams[[1]]$var.summary)) {
@@ -46,8 +46,8 @@ if ("Basin" %in% names(gams[[1]]$var.summary)) {
 
 # quick plot
 if (FALSE) {
-  sp::plot(bathy, col = rev(viridis::magma(50, alpha=0.5))[cut(bathy$depth, 50)], pch = ".")
-  sp::plot(helcom, add = TRUE, border = "red")
+  plot(bathy["depth"], pch = ".", col = rev(viridis::magma(50, alpha=0.5))[cut(bathy$depth, 50)])
+  plot(sf::st_geometry(helcom), add = TRUE, border = "red")
 }
 
 # NOTES:
@@ -55,9 +55,10 @@ if (FALSE) {
 # *     depth changepoint 2 (lower halocline depth)
 # *     O2_deficit at lower halocline
 # *     O2_slope slope
-
+ 
 # create prediction data
-surfaces <- dplyr::rename(data.frame(bathy), x = coords.x1, y = coords.x2)
+bathy <- cbind(bathy, sf::st_coordinates(bathy))
+surfaces <- dplyr::rename(data.frame(bathy), x = X, y = Y)
 surfaces$yday <- 1 # predict at january 1st - this will be dropped later anyway
 
 if (FALSE) {
@@ -231,20 +232,18 @@ if (FALSE) {
   summary(surfaces)
 
   # plot surfaces to check
-  tmp <- surfaces[surfaces$Year == 2011,]
-  sp::coordinates(tmp) <- c("x", "y")
-  sp::proj4string(tmp) <- sp::CRS("+proj=utm +zone=34 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0")
+  tmp <- sf::st_as_sf(surfaces[surfaces$Year == 2011, ], coords = c("x", "y"), crs = 32634)
 
-  sp::plot(tmp, col = rev(viridis::magma(50, alpha=0.5))[cut(tmp$halocline, 50)], pch = 16, cex = 0.5)
-  sp::plot(helcom, add = TRUE, border = "red")
+  plot(tmp["halocline"], pch = 16, cex = 0.5, col = rev(viridis::magma(50, alpha=0.5))[cut(tmp$halocline, 50)])
+  plot(sf::st_geometry(helcom), add = TRUE, border = "red")
   title(main = "Halocline depth")
 
-  sp::plot(tmp, col = rev(viridis::magma(50, alpha=0.5))[cut(tmp$O2def_below_halocline, 50)], pch = 16, cex = 0.5)
-  sp::plot(helcom, add = TRUE, border = "red")
+  plot(tmp["O2def_below_halocline"], pch = 16, cex = 0.5, col = rev(viridis::magma(50, alpha=0.5))[cut(tmp$O2def_below_halocline, 50)])
+  plot(sf::st_geometry(helcom), add = TRUE, border = "red")
   title(main = "O2def below halocline")
 
-  sp::plot(tmp, col = rev(viridis::magma(50, alpha=0.5))[cut(tmp$oxygendebt, 50)], pch = 16, cex = 0.5)
-  sp::plot(helcom, add = TRUE, border = "red")
+  plot(tmp["oxygendebt"], pch = 16, cex = 0.5, col = rev(viridis::magma(50, alpha=0.5))[cut(tmp$oxygendebt, 50)])
+  plot(sf::st_geometry(helcom), add = TRUE, border = "red")
   title(main = "Volume specific oxygen debt")
 
 }

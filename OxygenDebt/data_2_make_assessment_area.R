@@ -20,26 +20,25 @@ outputPath <<- file.path("OxygenDebt/Output", assessmentPeriod)
 # ----------------------------
 
 # read helcom and drop non SEA areas
-helcom <- rgdal::readOGR(inputPath, "AssessmentUnits", verbose = FALSE)
-helcom <- helcom[grep("^SEA-", helcom$Code),]
+helcom <- sf::st_read(dsn = inputPath, layer = "AssessmentUnits", quiet = TRUE)
+helcom <- helcom[grep("^SEA-", helcom$Code), ]
 # transform to utm34
-helcom <- sp::spTransform(helcom, sp::CRS("+proj=utm +zone=34 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"))
+helcom <- sf::st_transform(helcom, 32634)
 
 # merge areas (need to buffer a bit for a clean merge)
-helcom_balsem <- rgeos::gUnaryUnion(rgeos::gBuffer(helcom, byid = TRUE, width = 10))
+helcom_balsem <- sf::st_union(sf::st_buffer(helcom, dist = 10))
 
 # read baltsem, and cut over helcom
-baltsem <- rgdal::readOGR(inputPath, "Baltsem_utm34", verbose = FALSE)
-helcom_balsem <- rgeos::gIntersection(baltsem, helcom_balsem, byid = TRUE)
-for (i in 1:length(helcom_balsem)) helcom_balsem@polygons[[i]]@ID <- paste(i)
-data <-
-  do.call(rbind,
-          lapply(1:length(helcom_balsem),
-                 function(i) sp::over(sp::spsample(helcom_balsem[i,], 1, type = "random"), baltsem)))
-helcom_balsem <- sp::SpatialPolygonsDataFrame(helcom_balsem, data)
+baltsem <- sf::st_read(dsn = inputPath, layer = "Baltsem_utm34", quiet = TRUE)
+helcom_balsem <- sf::st_intersection(baltsem, helcom_balsem)
+if (!all(c("Bo_Basin", "Basin") %in% names(helcom_balsem))) {
+  sample_points <- sf::st_point_on_surface(helcom_balsem)
+  sample_points <- sf::st_join(sample_points, baltsem)
+  helcom_balsem <- cbind(helcom_balsem, sample_points[, setdiff(names(sample_points), names(helcom_balsem)), drop = FALSE])
+}
 
 # fix names
-helcom_balsem$Bo_Basin <- gsub("Ã", "oe", helcom_balsem$Bo_Basin)
+helcom_balsem$Bo_Basin <- gsub("Ö", "oe", helcom_balsem$Bo_Basin)
 helcom_balsem$Bo_Basin <- iconv(helcom_balsem$Bo_Basin, "UTF-8", "ASCII", sub = "")
 helcom_balsem$Bo_Basin <- gsub("oeresund", "Oeresund", helcom_balsem$Bo_Basin)
 helcom_balsem$Basin <- helcom_balsem$Bo_Basin
@@ -51,21 +50,24 @@ helcom_balsem <-
                                            "Bornholm Basin",
                                            "Bothnian Bay",
                                            "Bothnian Sea",
-                                           "Gulf of Finland"),]
+                                           "Gulf of Finland"), ]
 
 # merge Gulf of Finland with Baltic Proper
-tmp <- rgeos::gUnaryUnion(helcom_balsem[helcom_balsem$Basin %in% c("Baltic Proper", "Gulf of Finland"),])
-helcom_balsem@polygons[[which(helcom_balsem$Basin == "Baltic Proper")]] <- tmp@polygons[[1]]
-helcom_balsem <- helcom_balsem[helcom_balsem$Basin != "Gulf of Finland",]
+tmp <- sf::st_union(helcom_balsem[helcom_balsem$Basin %in% c("Baltic Proper", "Gulf of Finland"), ])
+merged <- sf::st_as_sf(data.frame(Basin = "Baltic Proper", stringsAsFactors = FALSE), geometry = sf::st_geometry(tmp))
+helcom_balsem <- rbind(
+  helcom_balsem[helcom_balsem$Basin != "Baltic Proper" & helcom_balsem$Basin != "Gulf of Finland", c("Basin", "geometry")],
+  merged
+)
 
 # check
 if (FALSE) {
-  sp::plot(helcom_balsem, col = gplots::rich.colors(nrow(helcom_balsem), alpha=0.5))
-  text(sp::coordinates(helcom_balsem), as.character(helcom_balsem$Basin), cex = 0.7)
+  plot(helcom_balsem["Basin"], col = gplots::rich.colors(nrow(helcom_balsem), alpha=0.5))
+  text(sf::st_coordinates(sf::st_centroid(sf::st_geometry(helcom_balsem))), as.character(helcom_balsem$Basin), cex = 0.7)
 }
 
 # write
-rgdal::writeOGR(helcom_balsem["Basin"], outputPath, "oxy_areas", driver = "ESRI Shapefile", overwrite_layer = TRUE)
+sf::st_write(helcom_balsem["Basin"], dsn = outputPath, layer = "oxy_areas", driver = "ESRI Shapefile", delete_layer = TRUE)
 
 # add to zip
 zip(file.path(outputPath, "oxy_areas.zip"), file.path(outputPath, dir(outputPath, pattern = "^oxy_areas*")))

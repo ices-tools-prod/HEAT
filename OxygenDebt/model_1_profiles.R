@@ -158,7 +158,7 @@ if (FALSE) {
                            "depth_change_point2.se", "O2def_below_halocline",
                            "O2def_slope_below_halocline")]))
 
-  helcom <- rgdal::readOGR("data/OxygenDebt/shapefiles", "helcom_areas")
-  sp::plot(helcom, col = gplots::rich.colors(nrow(helcom), alpha = 0.5))
-  points(makeSpatial(profiles), cex = 0.5)
+  helcom <- sf::st_read(dsn = "data/OxygenDebt/shapefiles", layer = "helcom_areas", quiet = TRUE)
+  plot(sf::st_geometry(helcom), col = gplots::rich.colors(nrow(helcom), alpha = 0.5))
+  plot(sf::st_geometry(makeSpatial(profiles)), add = TRUE, pch = 16, cex = 0.5)
 }

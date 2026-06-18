@@ -11,9 +11,9 @@ function(phase = c("data", "input", "model", "output"))
   # phase specific packages -------------------
   pkg <-
     switch(phase,
-      data = c("sp", "rgdal", "rgeos", "dplyr"),
+      data = c("sf", "dplyr"),
       input = c("lubridate"),
-      model = c("stats", "survival", "dplyr", "mgcv", "sp", "rgdal"),
+      model = c("stats", "survival", "dplyr", "mgcv", "sf"),
       output = c("tidyr", "dplyr")
     )
 
@@ -28,6 +28,24 @@ function(phase = c("data", "input", "model", "output"))
   always_load <- c("mgcv")
   if (always_load %in% pkg) {
     tmp <- sapply(intersect(always_load, pkg), library, character.only = TRUE, quietly = TRUE, pos = 3)
+  }
+
+  # compatibility helpers for modern spatial packages
+  read_spatial_layer <<- function(path, layer, quiet = TRUE, ...) {
+    if (!requireNamespace("sf", quietly = TRUE)) {
+      stop("Package 'sf' is required to read spatial layers.")
+    }
+    sf::st_read(dsn = path, layer = layer, quiet = quiet, ...)
+  }
+
+  write_spatial_layer <<- function(x, path, layer, quiet = TRUE, ...) {
+    if (!requireNamespace("sf", quietly = TRUE)) {
+      stop("Package 'sf' is required to write spatial layers.")
+    }
+    if (inherits(x, "Spatial")) {
+      x <- sf::st_as_sf(x)
+    }
+    sf::st_write(x, dsn = path, layer = layer, quiet = quiet, delete_layer = TRUE, ...)
   }
 
   # load utils into oxydebt_funs namespace

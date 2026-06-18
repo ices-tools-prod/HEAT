@@ -30,8 +30,8 @@ header("model")
 
 # read in data
 oxy <- read.csv("analysis/input/OxygenDebt/oxy_clean.csv")
-bathy <- rgdal::readOGR("data/OxygenDebt/shapefiles", "helcom_bathymetry")
-helcom <- rgdal::readOGR("data/OxygenDebt/shapefiles", "helcom_areas")
+bathy <- sf::st_read(dsn = "data/OxygenDebt/shapefiles", layer = "helcom_bathymetry", quiet = TRUE)
+helcom <- sf::st_read(dsn = "data/OxygenDebt/shapefiles", layer = "helcom_areas", quiet = TRUE)
 
 # fit salinity model everywhere
 
@@ -45,12 +45,12 @@ summary(g)
 AIC(g)
 
 # choose a location to plot
-sp::plot(makeSpatial(data), pch = 1)
+plot(sf::st_geometry(makeSpatial(data)), pch = 1)
 xy <- locator(n=1)
 
 # get depth
-sp::plot(helcom)
-loc <- bathy[which.min(colSums((t(sp::coordinates(bathy)) - unlist(xy))^2)),]
+plot(sf::st_geometry(helcom))
+loc <- bathy[which.min(colSums((t(sf::st_coordinates(sf::st_geometry(bathy))) - unlist(xy))^2)),]
 points(xy$x, xy$y, col = "red", pch=16)
 points(loc, col = "blue")
 

@@ -184,18 +184,17 @@ ES_N <- with(profiles, tapply(O2def_slope_below_halocline, list(Basin), function
 out$ES_N <- c(ES_N[basins])
 
 # now expand to AssessmentUnitID
-library(sp)
-helcom <- rgdal::readOGR(file.path(outputPath), "oxy_areas", verbose = FALSE)
-helcom <- helcom[helcom$Basin %in% out$Basin,]
-SEA <- rgdal::readOGR(file.path(inputPath), "AssessmentUnits", verbose = FALSE)
-SEA <- SEA[grep("SEA", SEA$Code),]
-SEA <- spTransform(SEA, CRS(proj4string(helcom)))
+helcom <- sf::st_read(dsn = file.path(outputPath), layer = "oxy_areas", quiet = TRUE)
+helcom <- helcom[helcom$Basin %in% out$Basin, ]
+SEA <- sf::st_read(dsn = file.path(inputPath), layer = "AssessmentUnits", quiet = TRUE)
+SEA <- SEA[grep("SEA", SEA$Code), ]
+SEA <- sf::st_transform(SEA, sf::st_crs(helcom))
 
 if (FALSE) {
   plot(helcom, col = gplots::rich.colors(nrow(helcom), alpha = 0.5), border = NA)
   plot(SEA, border = "red", lwd = 2, add = TRUE)
-  text(coordinates(SEA), labels = SEA$Code, cex = 0.6, col = "red")
-  text(coordinates(helcom), labels = helcom$Basin, cex = 0.6)
+  text(sf::st_coordinates(sf::st_geometry(SEA)), labels = SEA$Code, cex = 0.6, col = "red")
+  text(sf::st_coordinates(sf::st_geometry(helcom)), labels = helcom$Basin, cex = 0.6)
 }
 
 lookup <- as.data.frame(SEA)
@@ -226,6 +225,9 @@ out_y <- dplyr::right_join(lookup, out_y, by = "Basin")
 
 out <- out[order(out$AssessmentUnitID),]
 out_y <- out_y[order(out_y$AssessmentUnitID, out_y$Year),]
+
+out <- out[, !is.na(names(out)), drop = FALSE]
+out_y <- out_y[, !is.na(names(out_y)), drop = FALSE]
 
 # inspect
 if (FALSE) {

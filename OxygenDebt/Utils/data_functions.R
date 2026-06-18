@@ -35,12 +35,9 @@ O2satFun <- function(temp) {
 }
 
 #' @export
-#' @importFrom sp coordinates
-#' @importFrom sp CRS
-#' @importFrom sp proj4string
-
 makeSpatial <- function(x) {
-  sp::coordinates(x) <- ~ x + y
-  sp::proj4string(x) <- sp::CRS("+proj=utm +zone=34 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0")
-  x
+  if (!all(c("x", "y") %in% names(x))) {
+    stop("makeSpatial requires columns 'x' and 'y'.")
+  }
+  sf::st_as_sf(x, coords = c("x", "y"), crs = 32634)
 }
